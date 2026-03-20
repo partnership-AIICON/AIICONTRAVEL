@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: events
+    // Document ID: auto-generated
+    // Fields:
+    //   - teamMemberName: string (1-100 chars) - required
+    //   - email: string (valid email) - required
+    //   - eventName: string (1-200 chars) - required
+    //   - startDate: string (ISO date) - optional
+    //   - endDate: string (ISO date) - optional
+    //   - numberOfDays: number - optional
+    //   - location: string (0-500 chars) - optional
+    //   - perDiemRate: number - optional
+    //   - eventTicketCost: number - optional
+    //   - totalReimbursable: number - optional
+    //   - totalTravelPay: number - optional
+    //   - paymentMethod: string (enum) - optional
+    //   - paymentDetails: string (0-500 chars) - optional
+    //   - status: string (enum: PRE_EVENT, POST_EVENT) - required
+    //   - objectives: list of strings - optional
+    //   - purposeSummary: string (0-2000 chars) - optional
+    //   - operationalFlow: string (0-2000 chars) - optional
+    //   - aiIntegrationAudit: string (0-2000 chars) - optional
+    //   - takeawayA: string (0-2000 chars) - optional
+    //   - takeawayB: string (0-2000 chars) - optional
+    //   - leadLog: string (0-2000 chars) - optional
+    //   - attachments: list of strings - optional
+    //   - receipts: list of maps - optional
+    //   - signature: string (0-100 chars) - optional
+    //   - signatureDate: string (ISO date) - optional
+    //   - userId: string (UID) - required
+    //   - createdAt: string (ISO date-time) - required
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "innovationblackchamber@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEvent(data) {
+      let requiredFields = ['teamMemberName', 'email', 'eventName', 'userId', 'createdAt', 'status'];
+      let allowedFields = [
+        'teamMemberName', 'email', 'eventName', 'startDate', 'endDate', 'numberOfDays',
+        'location', 'perDiemRate', 'eventTicketCost', 'totalReimbursable', 'totalTravelPay',
+        'paymentMethod', 'paymentDetails', 'status', 'objectives', 'purposeSummary',
+        'operationalFlow', 'aiIntegrationAudit', 'takeawayA', 'takeawayB', 'leadLog',
+        'attachments', 'receipts', 'signature', 'signatureDate', 'userId', 'createdAt',
+        'githubRepo', 'githubUser', 'aiAnalysis'
+      ];
+      
+      return data.keys().hasAll(requiredFields) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.teamMemberName is string && data.teamMemberName.size() > 0 && data.teamMemberName.size() <= 100 &&
+             data.eventName is string && data.eventName.size() > 0 && data.eventName.size() <= 200 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.userId == request.auth.uid &&
+             data.createdAt is string &&
+             data.status in ['PRE_EVENT', 'POST_EVENT'] &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 500)) &&
+             (!('paymentDetails' in data) || (data.paymentDetails is string && data.paymentDetails.size() <= 500)) &&
+             (!('purposeSummary' in data) || (data.purposeSummary is string && data.purposeSummary.size() <= 2000)) &&
+             (!('operationalFlow' in data) || (data.operationalFlow is string && data.operationalFlow.size() <= 2000)) &&
+             (!('aiIntegrationAudit' in data) || (data.aiIntegrationAudit is string && data.aiIntegrationAudit.size() <= 2000)) &&
+             (!('takeawayA' in data) || (data.takeawayA is string && data.takeawayA.size() <= 2000)) &&
+             (!('takeawayB' in data) || (data.takeawayB is string && data.takeawayB.size() <= 2000)) &&
+             (!('leadLog' in data) || (data.leadLog is string && data.leadLog.size() <= 2000)) &&
+             (!('signature' in data) || (data.signature is string && data.signature.size() <= 100)) &&
+             (!('objectives' in data) || (data.objectives is list && data.objectives.size() <= 10)) &&
+             (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 10)) &&
+             (!('receipts' in data) || (data.receipts is list && data.receipts.size() <= 20)) &&
+             (!('githubRepo' in data) || (data.githubRepo is string && data.githubRepo.size() <= 200)) &&
+             (!('githubUser' in data) || (data.githubUser is string && data.githubUser.size() <= 100)) &&
+             (!('aiAnalysis' in data) || (data.aiAnalysis is string && data.aiAnalysis.size() <= 10000));
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidEvent(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin()) && isValidEvent(request.resource.data);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId) && (request.resource.data.role == 'user' || (resource != null && request.resource.data.role == resource.data.role));
+    }
+  }
+}

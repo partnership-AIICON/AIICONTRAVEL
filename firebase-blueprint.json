@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "Event": {
+      "title": "Event Engagement & Expense",
+      "description": "An internal strategic document for event engagement and reconnaissance.",
+      "type": "object",
+      "properties": {
+        "teamMemberName": { "type": "string", "description": "Name of the team member" },
+        "email": { "type": "string", "format": "email", "description": "Contact email" },
+        "eventName": { "type": "string", "description": "Name of the event" },
+        "startDate": { "type": "string", "description": "Event start date" },
+        "endDate": { "type": "string", "description": "Event end date" },
+        "numberOfDays": { "type": "number", "description": "Number of days" },
+        "location": { "type": "string", "description": "Venue or URL" },
+        "perDiemRate": { "type": "number", "description": "Per diem rate in USD" },
+        "eventTicketCost": { "type": "number", "description": "Event ticket cost in USD" },
+        "totalReimbursable": { "type": "number", "description": "Total reimbursable amount in USD" },
+        "totalTravelPay": { "type": "number", "description": "Total travel pay requested in USD" },
+        "paymentMethod": { 
+          "type": "string", 
+          "enum": ["Zelle", "CashApp", "Direct Invoice", ""],
+          "description": "Preferred payment method" 
+        },
+        "paymentDetails": { "type": "string", "description": "Payment handle, email, or invoice info" },
+        "status": { 
+          "type": "string", 
+          "enum": ["PRE_EVENT", "POST_EVENT"],
+          "description": "Submission phase status" 
+        },
+        "objectives": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Mission objectives selected"
+        },
+        "purposeSummary": { "type": "string", "description": "Narrative summary of purpose" },
+        "operationalFlow": { "type": "string", "description": "Operational flow and friction points" },
+        "aiIntegrationAudit": { "type": "string", "description": "Audit of AI integration at the event" },
+        "takeawayA": { "type": "string", "description": "Strategic takeaway A" },
+        "takeawayB": { "type": "string", "description": "Strategic takeaway B" },
+        "leadLog": { "type": "string", "description": "Sponsor and educator lead log" },
+        "attachments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Media and storyboard attachments confirmed"
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "data": { "type": "string" },
+              "type": { "type": "string" }
+            }
+          },
+          "description": "Uploaded receipt files (base64)"
+        },
+        "signature": { "type": "string", "description": "Team member signature" },
+        "signatureDate": { "type": "string", "format": "date", "description": "Date of signature" },
+        "userId": { "type": "string", "description": "UID of the user who submitted the form" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Submission timestamp" },
+        "githubRepo": { "type": "string", "description": "Linked GitHub repository full name" },
+        "githubUser": { "type": "string", "description": "GitHub username of the connected account" },
+        "aiAnalysis": { "type": "string", "description": "AI-generated strategic analysis" }
+      },
+      "required": ["teamMemberName", "email", "eventName", "userId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Collection of event submissions"
+    }
+  }
+}
