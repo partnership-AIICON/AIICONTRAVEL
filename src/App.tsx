@@ -16,6 +16,8 @@ import {
 } from 'firebase/firestore';
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut,
@@ -142,7 +144,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'assets' | 'reports' | 'issues'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'assets' | 'reports' | 'issues' | 'new'>('all');
   const [success, setSuccess] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -206,6 +208,16 @@ export default function App() {
     };
     testConnection();
 
+    // Check for redirect result
+    getRedirectResult(auth).catch((err: any) => {
+      console.error("Redirect Error:", err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError(`Authentication Failed: This domain is not authorized. Please add this Netlify URL (${window.location.hostname}) to your Firebase Console -> Authentication -> Settings -> Authorized Domains.`);
+      } else {
+        setError(`Login failed: ${err.message || err.code || 'Unknown error occurred'}`);
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setIsAuthReady(true);
@@ -219,8 +231,7 @@ export default function App() {
 
     const q = query(
       collection(db, 'events'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -228,6 +239,10 @@ export default function App() {
         id: doc.id,
         ...doc.data()
       })) as EventSubmission[];
+      
+      // Sort client-side to avoid requiring a composite index in Firestore
+      data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
       setSubmissions(data);
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, 'events');
@@ -263,8 +278,20 @@ export default function App() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login Error:', err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError(`Authentication Failed: This domain is not authorized. Please add this Netlify URL (${window.location.hostname}) to your Firebase Console -> Authentication -> Settings -> Authorized Domains.`);
+      } else if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request' || err.code === 'auth/cross-origin-opener-policy-failed') {
+        const provider = new GoogleAuthProvider();
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectErr: any) {
+          setError(`Redirect Login Error: ${redirectErr.message}`);
+        }
+      } else {
+        setError(`Login failed: ${err.message || err.code || 'Unknown error occurred'}`);
+      }
     }
   };
 
