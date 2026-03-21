@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NODE_OPTIONS = "--max-old-space-size=4096"
+  CI = "false" # Prevent warnings from failing the build
